@@ -5,6 +5,14 @@ registers route blueprints, sets up error handlers, and implements the
 application factory pattern. This file replaces the Node.js server.js/app.js
 and serves as the central hub for the Flask application.
 
+Migration Note:
+    This file is the Python/Flask equivalent of what would have been server.js
+    or app.js in a Node.js/Express application. Key parallels include:
+    - create_app() is similar to Express's app = express() with middleware setup
+    - Error handlers replace Express's app.use((err, req, res, next) => {...})
+    - Blueprint registration is analogous to Express Router mounting
+    - The 'app' module-level variable serves the same role as module.exports = app
+
 The application factory pattern allows creating multiple app instances
 with different configurations, which is essential for testing.
 
@@ -59,33 +67,57 @@ def create_app(config_name: str = None) -> Flask:
         >>> app.config['TESTING']
         True
     """
+    # FLASK_ENV lookup provides runtime flexibility for different deployment contexts.
+    # This allows the same code to run in dev, test, or production based on environment
+    # variable without code changes. Falls back to 'development' for local development.
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'development')
     
     app = Flask(__name__)
     
-    # Load configuration from environment-specific config class
+    # Load configuration from environment-specific config class.
+    # The config dictionary maps string names ('development', 'production', 'testing')
+    # to configuration classes. Falls back to 'default' (DevelopmentConfig) if unknown.
     config_class = config.get(config_name, config['default'])
     app.config.from_object(config_class)
     
-    # Initialize production-specific settings if applicable
+    # Initialize production-specific settings if applicable.
+    # ProductionConfig.init_app() validates critical settings like SECRET_KEY
+    # to prevent accidental deployment with insecure defaults.
     if hasattr(config_class, 'init_app'):
         config_class.init_app(app)
     
-    # Initialize SQLAlchemy with the Flask app
+    # Database initialization must precede blueprint registration to ensure models
+    # are available when route handlers are imported. SQLAlchemy uses the app's
+    # SQLALCHEMY_DATABASE_URI config to establish the database connection.
     db.init_app(app)
     
-    # Configure CORS for cross-origin request support
-    # Uses CORS_ORIGINS from config for allowed origins
+    # Configure CORS (Cross-Origin Resource Sharing) for cross-origin request support.
+    # CORS is configured to allow cross-origin requests ONLY for /api/* routes,
+    # protecting other routes from cross-origin access while enabling API consumption
+    # from different domains (e.g., frontend on port 3000, API on port 5000).
+    # 
+    # SECURITY NOTE: In production, set CORS_ORIGINS to specific trusted domains
+    # instead of '*' (all origins). Example: CORS_ORIGINS=https://myapp.com,https://admin.myapp.com
+    # The '*' default is convenient for development but insecure in production.
     cors_origins = app.config.get('CORS_ORIGINS', '*')
     CORS(app, resources={r"/api/*": {"origins": cors_origins}})
     
-    # Register API blueprint with /api URL prefix
-    # Lazy import to avoid circular dependencies
+    # Register API blueprint with /api URL prefix for REST API organization.
+    # Lazy import pattern: Importing routes inside create_app() (rather than at module
+    # level) prevents circular dependency issues. Route handlers may import models
+    # which depend on db, which is initialized above. Module-level import would fail
+    # because db wouldn't be initialized yet during import resolution.
+    # 
+    # The /api prefix groups all API endpoints (e.g., /api/health, /api/users)
+    # making it easy to apply API-specific middleware and separate from static routes.
     from routes import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
     
-    # Configure logging based on config
+    # Configure logging level from config, which sources from LOG_LEVEL environment
+    # variable (see config.py). Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+    # In development, DEBUG shows detailed request/response info. In production,
+    # INFO or WARNING reduces log volume while capturing important events.
     log_level = app.config.get('LOG_LEVEL', 'INFO')
     app.logger.setLevel(log_level)
     
@@ -106,6 +138,19 @@ def _register_error_handlers(app: Flask) -> None:
     
     Args:
         app: Flask application instance to register handlers on
+    
+    Note:
+        This pattern ensures all HTTP errors return JSON instead of Flask's
+        default HTML error pages. This is essential for API consumers (frontend
+        apps, mobile clients) who expect JSON responses they can parse.
+        
+        Error response format: {"error": "<error_type>", "message": "<details>"}
+        
+        Without custom error handlers, Flask returns HTML like:
+        <!DOCTYPE HTML><html><head><title>404 Not Found</title>...
+        
+        With these handlers, clients always receive parseable JSON:
+        {"error": "Not found"}
     """
     
     @app.errorhandler(400)
@@ -185,17 +230,36 @@ def _register_error_handlers(app: Flask) -> None:
         return jsonify({'error': 'Internal server error'}), 500
 
 
-# Create default application instance for WSGI servers (e.g., Gunicorn)
-# This instance is used when running: gunicorn app:app
+# Default app instance created at module level for WSGI servers like Gunicorn to import.
+# When running "gunicorn app:app", Gunicorn imports this module and uses the 'app'
+# variable as the WSGI application. This is similar to Node.js's module.exports = app.
+#
+# Why module-level instantiation? WSGI servers expect to import a ready-to-use
+# application object. They don't call create_app() directly - they just grab 'app'.
+# The create_app() factory is exposed for testing and custom configurations.
 app = create_app()
 
 
 if __name__ == '__main__':
-    # Development server entry point
-    # For production, use Gunicorn: gunicorn -w 4 -b 0.0.0.0:5000 app:app
+    # Development server entry point - ONLY runs when executing: python app.py
+    # This block does NOT execute when imported by Gunicorn (which imports the 'app'
+    # variable above directly). This separation allows the same file to serve both
+    # development (Flask's built-in server) and production (Gunicorn) use cases.
+    #
+    # For production, use Gunicorn which imports the 'app' variable above:
+    #   gunicorn -w 4 -b 0.0.0.0:5000 app:app
+    #
+    # Flask's built-in server is NOT suitable for production because:
+    # - Single-threaded by default (can't handle concurrent requests efficiently)
+    # - No worker process management (crashes don't auto-restart)
+    # - Development-focused features add overhead (e.g., reloader file watching)
     host = app.config.get('HOST', '0.0.0.0')
     port = int(os.environ.get('PORT', app.config.get('PORT', 5000)))
     debug = app.config.get('DEBUG', False)
     
+    # debug=True enables two key development features:
+    # 1. Hot reload: Auto-restarts server when code changes are detected
+    # 2. Interactive debugger: Shows detailed error pages with in-browser debugging
+    # WARNING: Never enable debug=True in production - it exposes sensitive info!
     app.logger.info(f'Starting development server on {host}:{port}')
     app.run(host=host, port=port, debug=debug)
