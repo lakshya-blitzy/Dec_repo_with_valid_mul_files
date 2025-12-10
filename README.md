@@ -6,6 +6,7 @@ Created by Blitzy
 
 ## Table of Contents
 
+- [Architecture Overview](#architecture-overview)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -16,7 +17,60 @@ Created by Blitzy
 - [Docker Deployment](#docker-deployment)
 - [Project Structure](#project-structure)
 - [API Documentation](#api-documentation)
+- [Full Documentation](#full-documentation)
 - [Contributing](#contributing)
+
+## Architecture Overview
+
+This Flask application follows a modern, production-ready architecture with layered components for maintainability and scalability.
+
+```mermaid
+flowchart TB
+    subgraph "Client Layer"
+        A[Web Browser / API Client]
+    end
+    
+    subgraph "Container Layer"
+        B[Docker Container<br/>Non-root execution]
+        C[Gunicorn WSGI Server<br/>4 workers, 2 threads]
+    end
+    
+    subgraph "Application Layer"
+        D[Flask Application<br/>app.py]
+        E[Configuration Manager<br/>config.py]
+        F[CORS Middleware]
+        G[Error Handlers]
+    end
+    
+    subgraph "Data Layer"
+        H[Flask-SQLAlchemy]
+        I[(Database<br/>SQLite/PostgreSQL/MySQL)]
+    end
+    
+    A -->|HTTP Request| B
+    B --> C
+    C --> D
+    D --> E
+    D --> F
+    D --> G
+    D --> H
+    H --> I
+```
+
+**Key Architectural Components:**
+
+| Component | Description | Source |
+|-----------|-------------|--------|
+| Application Factory | `create_app()` function enables testing and multi-environment support | `app.py:34-97` |
+| Configuration Classes | Environment-specific configs (Development, Production, Testing) | `config.py` |
+| CORS Middleware | Cross-origin request handling for `/api/*` routes | `app.py:78-81` |
+| Error Handlers | Consistent JSON error responses for all HTTP errors | `app.py:100-185` |
+| Database ORM | Flask-SQLAlchemy for database abstraction | `models/__init__.py` |
+| WSGI Server | Gunicorn for production deployments | `Dockerfile:98-107` |
+
+> **Note:** This project was migrated from Node.js/Express to Python/Flask. The `app.py` file replaces the original `server.js/app.js` and implements the Flask application factory pattern for modern Flask development.
+
+For detailed architecture documentation, see the [Full Documentation](#full-documentation) section.
 
 ## Prerequisites
 
@@ -89,6 +143,8 @@ DEBUG=True
 ```
 
 **Important:** Never commit your `.env` file to version control. It contains sensitive information.
+
+> **More Details:** For complete configuration reference including all environment variables, configuration classes, and production security settings, see the [Configuration Reference](docs/guides/configuration.md).
 
 ## Running the Application
 
@@ -222,57 +278,77 @@ docker-compose down
 docker logs flask-app
 ```
 
+> **More Details:** For comprehensive deployment documentation including multi-stage Docker builds, production Gunicorn configuration, health monitoring, scaling considerations, and security checklists, see the [Deployment Guide](docs/deployment/deployment.md).
+
 ## Project Structure
 
 ```
 ExistingProduct1-3Dec/
-├── app.py                 # Main Flask application entry point
-├── config.py              # Configuration management
-├── requirements.txt       # Python dependencies
-├── Dockerfile             # Docker container definition
-├── .env.example           # Environment variable template
+├── app.py                 # Main Flask application entry point (application factory)
+├── config.py              # Configuration management (environment-based configs)
+├── requirements.txt       # Python dependencies (pinned versions)
+├── Dockerfile             # Multi-stage Docker container definition
+├── .env.example           # Environment variable template (documented defaults)
+├── .gitignore             # Git ignore patterns
 ├── README.md              # This file
-├── routes/
-│   ├── __init__.py        # Blueprint registration
-│   └── api.py             # API route handlers
 ├── models/
-│   ├── __init__.py        # Model exports
-│   └── models.py          # Data models
-├── services/
-│   ├── __init__.py        # Service exports
-│   └── services.py        # Business logic
-├── middleware/
-│   ├── __init__.py        # Middleware exports
-│   └── auth.py            # Authentication decorators
-├── utils/
-│   ├── __init__.py        # Utility exports
-│   └── helpers.py         # Helper functions
-└── tests/
-    ├── __init__.py        # Test configuration
-    ├── conftest.py        # Pytest fixtures
-    └── test_api.py        # API tests
+│   └── __init__.py        # Database models and SQLAlchemy initialization
+├── routes/
+│   └── __init__.py        # API blueprint and route handlers
+└── docs/                  # Comprehensive documentation
+    ├── README.md              # Documentation index and navigation
+    ├── getting-started/
+    │   └── quick-start.md     # Quick start guide
+    ├── api/
+    │   ├── endpoints.md       # API endpoint reference
+    │   └── error-responses.md # Error handling documentation
+    ├── guides/
+    │   ├── configuration.md   # Configuration reference
+    │   └── troubleshooting.md # Troubleshooting guide
+    └── deployment/
+        └── deployment.md      # Deployment guide (Docker, Gunicorn, production)
 ```
+
+> **Note:** This is the current repository structure. Additional directories (`services/`, `middleware/`, `utils/`, `tests/`) may be added as the application expands. See the [Full Documentation](#full-documentation) section for detailed documentation of each component.
 
 ## API Documentation
 
 ### Base URL
 
-- Development: `http://localhost:5000`
-- Production: `http://your-domain.com`
+| Environment | URL | Notes |
+|-------------|-----|-------|
+| Development | `http://localhost:5000` | Flask development server |
+| Docker | `http://localhost:8000` | Containerized deployment |
+| Production | `https://your-domain.com` | Your production domain |
 
 ### Available Endpoints
 
-All API endpoints are prefixed with `/api`.
+All API endpoints are prefixed with `/api`. CORS is enabled for all `/api/*` routes.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Health check endpoint |
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/health` | Health check endpoint | No |
 
-*Additional endpoints will be documented as they are implemented.*
+> **Health Check Note:** The Dockerfile HEALTHCHECK uses `/health` (root path) while the API exposes `/api/health`. For container health checks, use `/health`. For API clients, use `/api/health`. Both endpoints may return health status depending on your route configuration.
+
+**Quick Health Check Test:**
+
+```bash
+# Development server
+curl http://localhost:5000/api/health
+
+# Docker container
+curl http://localhost:8000/api/health
+
+# Expected response
+{"status": "healthy"}
+```
+
+*Additional endpoints will be documented in the [API Reference](docs/api/endpoints.md) as they are implemented.*
 
 ### Response Format
 
-All API responses follow a consistent JSON format:
+All API responses follow a consistent JSON format for predictable client-side handling.
 
 **Success Response:**
 ```json
@@ -285,21 +361,76 @@ All API responses follow a consistent JSON format:
 **Error Response:**
 ```json
 {
-  "error": "Error message description"
+  "error": "Error type",
+  "message": "Detailed error description"
 }
 ```
 
+Source: `app.py:111-185` - All error handlers return consistent JSON responses.
+
 ### HTTP Status Codes
 
-| Code | Description |
-|------|-------------|
-| 200 | Success |
-| 201 | Created |
-| 400 | Bad Request |
-| 401 | Unauthorized |
-| 403 | Forbidden |
-| 404 | Not Found |
-| 500 | Internal Server Error |
+| Code | Description | Use Case |
+|------|-------------|----------|
+| 200 | Success | Successful GET, PUT, PATCH requests |
+| 201 | Created | Successful POST requests that create resources |
+| 400 | Bad Request | Malformed request, invalid parameters |
+| 401 | Unauthorized | Missing or invalid authentication |
+| 403 | Forbidden | Valid auth but insufficient permissions |
+| 404 | Not Found | Requested resource doesn't exist |
+| 405 | Method Not Allowed | HTTP method not supported for endpoint |
+| 500 | Internal Server Error | Server-side errors (details logged, not exposed) |
+
+For detailed error response examples and handling guidance, see the [Error Responses Guide](docs/api/error-responses.md).
+
+### Request/Response Headers
+
+**Request Headers:**
+```
+Content-Type: application/json
+Accept: application/json
+```
+
+**Response Headers:**
+```
+Content-Type: application/json
+Access-Control-Allow-Origin: <configured origins>
+```
+
+For complete API documentation including request/response examples, see the [API Reference](docs/api/endpoints.md).
+
+## Full Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+| Document | Description | Path |
+|----------|-------------|------|
+| **Documentation Index** | Navigation hub for all documentation | [docs/README.md](docs/README.md) |
+| **Quick Start Guide** | Get started quickly with essential steps | [docs/getting-started/quick-start.md](docs/getting-started/quick-start.md) |
+| **API Reference** | Complete API endpoint documentation | [docs/api/endpoints.md](docs/api/endpoints.md) |
+| **Error Handling Guide** | Error response formats and handling | [docs/api/error-responses.md](docs/api/error-responses.md) |
+| **Configuration Reference** | Environment variables and config classes | [docs/guides/configuration.md](docs/guides/configuration.md) |
+| **Troubleshooting Guide** | Common issues and solutions | [docs/guides/troubleshooting.md](docs/guides/troubleshooting.md) |
+| **Deployment Guide** | Docker, Gunicorn, and production setup | [docs/deployment/deployment.md](docs/deployment/deployment.md) |
+
+### Documentation Structure
+
+```mermaid
+flowchart LR
+    A[README.md] --> B[docs/README.md]
+    B --> C[Quick Start]
+    B --> D[API Reference]
+    B --> E[Deployment Guide]
+    B --> F[Configuration]
+    D --> G[Endpoints]
+    D --> H[Error Responses]
+    E --> I[Docker Deployment]
+    E --> J[Production Setup]
+    F --> K[Environment Variables]
+    F --> L[Configuration Classes]
+```
+
+> **Tip:** Start with the [Quick Start Guide](docs/getting-started/quick-start.md) for a fast onboarding experience, or explore the [Documentation Index](docs/README.md) for a complete overview.
 
 ## Contributing
 
