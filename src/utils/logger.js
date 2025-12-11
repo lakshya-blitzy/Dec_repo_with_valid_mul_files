@@ -106,7 +106,7 @@ const currentLevel = process.env.LOG_LEVEL || defaultLevel;
 const jsonFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
-  winston.format.json()
+  winston.format.json(),
 );
 
 /**
@@ -142,7 +142,7 @@ const consoleFormat = winston.format.combine(
     }
     
     return logMessage;
-  })
+  }),
 );
 
 /**

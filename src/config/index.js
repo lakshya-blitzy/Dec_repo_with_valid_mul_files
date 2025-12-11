@@ -91,7 +91,7 @@ function getIntEnvVar(key, defaultValue) {
  * @param {boolean} defaultValue - Default value if variable is not set
  * @returns {boolean} The parsed boolean value or default
  */
-function getBoolEnvVar(key, defaultValue) {
+function _getBoolEnvVar(key, defaultValue) {
   const value = process.env[key];
   if (value === undefined || value === '') {
     return defaultValue;
@@ -205,7 +205,7 @@ if (isProduction) {
   ) {
     throw new Error(
       'SECRET_KEY environment variable must be set in production. ' +
-        'Generate a secure key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+        'Generate a secure key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
     );
   }
 }
