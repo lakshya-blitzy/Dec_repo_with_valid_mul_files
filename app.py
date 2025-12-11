@@ -4,7 +4,10 @@ This module initializes the Flask app instance, configures middleware (CORS),
 registers route blueprints, sets up error handlers, and implements the
 application factory pattern. This file replaces the Node.js server.js/app.js
 and serves as the central hub for the Flask application.
-
+This module initializes the Flask app instance, configures middleware (CORS),
+registers route blueprints, sets up error handlers, and implements the
+application factory pattern. This file replaces the Node.js server.js/app.js
+and serves as the central hub for the Flask application.
 The application factory pattern allows creating multiple app instances
 with different configurations, which is essential for testing.
 
