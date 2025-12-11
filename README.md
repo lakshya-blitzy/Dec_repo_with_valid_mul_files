@@ -375,12 +375,18 @@ docker logs flask-app
 ExistingProduct1-3Dec/
 ├── app.py                 # Main Flask application entry point and WSGI target
 ├── config.py              # Environment-based configuration classes
+├── models.py              # SQLAlchemy database models and db instance
+├── routes.py              # API route handlers and blueprints
 ├── requirements.txt       # Python dependencies
 ├── Dockerfile             # Multi-stage Docker container build
 ├── .env.example           # Environment variable template (40+ options)
 ├── README.md              # This documentation file
 ├── CONTRIBUTING.md        # Contribution guidelines
 ├── CHANGELOG.md           # Version history and release notes
+├── tests/                 # Unit and integration tests
+│   ├── __init__.py        # Test package initialization
+│   ├── conftest.py        # Pytest fixtures and configuration
+│   └── test_app.py        # Application and endpoint tests
 └── docs/
     └── API.md             # Comprehensive API reference
 ```
