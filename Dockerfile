@@ -1,79 +1,67 @@
-# Dockerfile for Python/Flask Application
-# Optimized for minimal size and security
-# Uses Python 3.12 slim base image and Gunicorn WSGI server
+# Dockerfile for Node.js/Express Application
+# Optimized for minimal size and security using Alpine Linux
+# Uses Node.js 20 LTS and PM2 process manager for production
 
 # -----------------------------------------------------------------------------
 # Build Stage: Install dependencies in a clean environment
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim AS builder
-
-# Set environment variables for Python optimization
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies required for building Python packages
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
+# Install PM2 globally for production process management
+RUN npm install -g pm2
 
-# Copy only requirements first for better layer caching
-COPY requirements.txt .
+# Copy package files first for better layer caching
+# This allows Docker to cache the npm ci step if dependencies haven't changed
+COPY package*.json ./
 
-# Create virtual environment and install dependencies
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+# Install production dependencies only
+# Using npm ci for deterministic builds from package-lock.json
+RUN npm ci --only=production && \
+    npm cache clean --force
 
 # -----------------------------------------------------------------------------
 # Production Stage: Minimal runtime image
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim AS production
+FROM node:20-alpine AS production
 
 # Labels for container metadata
 LABEL maintainer="Blitzy" \
       version="1.0" \
-      description="Python/Flask application container"
+      description="Node.js/Express API server container with PM2"
 
-# Set environment variables for Python and Flask
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONFAULTHANDLER=1 \
-    FLASK_APP=app.py \
-    FLASK_ENV=production \
-    PORT=8000
+# Set environment variables for Node.js production
+ENV NODE_ENV=production \
+    PORT=3000
 
 # Set working directory
 WORKDIR /app
 
-# Install minimal runtime dependencies only
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libpq5 \
-        curl && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get clean
+# Install curl for health checks (not included by default in alpine)
+# and dumb-init for proper signal handling with PM2
+RUN apk add --no-cache curl dumb-init
 
-# Create non-root user for security
-RUN groupadd --gid 1000 appgroup && \
-    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+# Create non-root user for security using Alpine syntax
+# Alpine uses addgroup/adduser instead of groupadd/useradd
+RUN addgroup --gid 1000 appgroup && \
+    adduser --uid 1000 --ingroup appgroup --shell /bin/sh --disabled-password --home /home/appuser appuser
 
-# Copy virtual environment from builder stage
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Copy PM2 from builder stage
+COPY --from=builder /usr/local/lib/node_modules/pm2 /usr/local/lib/node_modules/pm2
+COPY --from=builder /usr/local/bin/pm2 /usr/local/bin/pm2
+COPY --from=builder /usr/local/bin/pm2-runtime /usr/local/bin/pm2-runtime
 
-# Copy application code
+# Copy node_modules from builder stage
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy application source code with proper ownership
+# This includes src/, ecosystem.config.js, package.json, etc.
 COPY --chown=appuser:appgroup . .
 
-# Remove unnecessary files from the container
-RUN rm -rf __pycache__ .pytest_cache .git .gitignore *.md tests/ 2>/dev/null || true
+# Create logs directory for Winston logger with proper permissions
+RUN mkdir -p /app/logs && chown -R appuser:appgroup /app/logs
 
 # Switch to non-root user
 USER appuser
@@ -82,26 +70,16 @@ USER appuser
 EXPOSE ${PORT}
 
 # Health check for container orchestration
+# Checks the /api/health endpoint on the configured port
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl --fail http://localhost:${PORT}/health || exit 1
+    CMD curl --fail http://localhost:${PORT}/api/health || exit 1
 
-# Run the application with Gunicorn WSGI server
-# Configuration:
-# - bind: Listen on all interfaces at specified PORT
-# - workers: Number of worker processes (default: 4, should be 2*CPU+1)
-# - threads: Number of threads per worker
-# - timeout: Worker timeout in seconds
-# - access-logfile: Log access to stdout for container logging
-# - error-logfile: Log errors to stderr for container logging
-# - capture-output: Capture stdout/stderr from workers
-# - enable-stdio-inheritance: Allow proper logging propagation
-CMD ["gunicorn", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
-     "--threads", "2", \
-     "--timeout", "120", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
-     "--capture-output", \
-     "--enable-stdio-inheritance", \
-     "app:app"]
+# Run the application with PM2 runtime
+# PM2-runtime is specifically designed for containers:
+# - Keeps the process in the foreground
+# - Properly handles signals (SIGTERM, SIGINT)
+# - Supports cluster mode for multi-core utilization
+# - Provides graceful shutdown capabilities
+# Using dumb-init ensures proper signal forwarding to PM2
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["pm2-runtime", "ecosystem.config.cjs"]

@@ -1,11 +1,12 @@
-# ExistingProduct1-3Dec
+# Express API Server
 
-A Python/Flask web server application providing RESTful API endpoints.
+A production-ready Node.js/Express.js web server application providing RESTful API endpoints with comprehensive middleware, logging, and PM2 process management.
 
 Created by Blitzy
 
 ## Table of Contents
 
+- [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -16,21 +17,43 @@ Created by Blitzy
 - [Docker Deployment](#docker-deployment)
 - [Project Structure](#project-structure)
 - [API Documentation](#api-documentation)
+- [Logging](#logging)
 - [Contributing](#contributing)
+
+## Features
+
+- **Express.js 5.x** - Modern web framework with async/await support
+- **Modular Architecture** - Organized routes, middleware, and utilities
+- **Security Middleware** - Helmet for HTTP security headers
+- **CORS Support** - Configurable cross-origin resource sharing
+- **Request Compression** - Gzip compression for responses
+- **Structured Logging** - Winston logger with console and file transports
+- **HTTP Request Logging** - Morgan middleware integration
+- **Environment Configuration** - dotenv-based configuration management
+- **PM2 Process Management** - Cluster mode for production deployments
+- **Docker Support** - Multi-stage build with Node.js Alpine base
+- **Graceful Shutdown** - Proper signal handling for zero-downtime deployments
 
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
 
-- **Python 3.12+** - [Download Python](https://www.python.org/downloads/)
-- **pip** - Python package installer (included with Python 3.12+)
-- **virtualenv** (recommended) - For isolated Python environments
+- **Node.js 20 LTS** (v20.10.0 or higher) - [Download Node.js](https://nodejs.org/en/download/)
+- **npm 10.x** - Node package manager (included with Node.js 20 LTS)
+- **PM2** (for production) - Process manager for Node.js applications
 
-Verify your Python installation:
+Verify your Node.js installation:
 
 ```bash
-python --version  # Should output Python 3.12.x or higher
-pip --version
+node --version  # Should output v20.x.x or higher
+npm --version   # Should output 10.x.x or higher
+```
+
+Install PM2 globally (optional, for production deployments):
+
+```bash
+npm install -g pm2
+pm2 --version  # Should output 6.x.x
 ```
 
 ## Installation
@@ -39,141 +62,165 @@ pip --version
 
 ```bash
 git clone <repository-url>
-cd ExistingProduct1-3Dec
+cd express-api-server
 ```
 
-2. **Create and activate a virtual environment (recommended):**
+2. **Install dependencies:**
 
 ```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate on Linux/macOS
-source venv/bin/activate
-
-# Activate on Windows
-venv\Scripts\activate
+npm install
 ```
 
-3. **Install dependencies:**
-
-```bash
-pip install -r requirements.txt
-```
-
-## Configuration
-
-1. **Create environment file:**
-
-Copy the example environment file and configure your settings:
+3. **Create environment file:**
 
 ```bash
 cp .env.example .env
 ```
 
-2. **Configure environment variables:**
+## Configuration
 
-Edit the `.env` file with your specific configuration:
+Configure your application by editing the `.env` file:
 
 ```bash
-# Flask Configuration
-FLASK_APP=app.py
-FLASK_ENV=development  # Use 'production' for production deployments
+# Application Configuration
+NODE_ENV=development  # Use 'production' for production deployments
+PORT=3000
+
+# Logging Configuration
+LOG_LEVEL=debug  # Options: error, warn, info, http, debug
+
+# Security Configuration
+CORS_ORIGIN=*  # Comma-separated list of allowed origins, or * for all
 SECRET_KEY=your-secret-key-here
 
-# Database Configuration (if applicable)
-DATABASE_URL=sqlite:///app.db
-
-# Additional configuration as needed
-DEBUG=True
+# Request Limits
+REQUEST_LIMIT=10mb
+COMPRESSION_THRESHOLD=1kb
 ```
 
-**Important:** Never commit your `.env` file to version control. It contains sensitive information.
+### Environment Variables Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `NODE_ENV` | Yes | `development` | Environment mode (development, production, test) |
+| `PORT` | No | `3000` | HTTP server port |
+| `LOG_LEVEL` | No | `info` | Winston logging level (error, warn, info, http, debug) |
+| `CORS_ORIGIN` | No | `*` | Allowed CORS origins (comma-separated or `*` for all) |
+| `SECRET_KEY` | No | - | Application secret key for signing |
+| `REQUEST_LIMIT` | No | `10mb` | Maximum request body size |
+| `COMPRESSION_THRESHOLD` | No | `1kb` | Minimum response size for compression |
+
+**Important:** Never commit your `.env` file to version control. It may contain sensitive information.
 
 ## Running the Application
 
 ### Development Server
 
-Run the Flask development server with hot-reload enabled:
+Run the development server with hot-reload enabled using nodemon:
 
 ```bash
-# Using Flask CLI
-flask run
+# Start development server with auto-reload
+npm run dev
 
-# Or using Python directly
-python app.py
-
-# Specify host and port
-flask run --host=0.0.0.0 --port=5000
+# The server will start at http://localhost:3000
 ```
 
-The development server will start at `http://localhost:5000` by default.
-
 **Development server features:**
-- Auto-reload on code changes
-- Debug mode with detailed error pages
-- Interactive debugger
+- Auto-reload on code changes (nodemon)
+- Debug-level logging
+- Colorized console output
+- Detailed error messages
 
 ### Production Server
 
-For production deployments, use Gunicorn as the WSGI server:
+For production deployments, use PM2 as the process manager:
 
 ```bash
-# Basic Gunicorn startup
-gunicorn app:app
+# Start with PM2 using ecosystem configuration
+npm run start:prod
 
-# With workers and binding configuration
-gunicorn --workers=4 --bind=0.0.0.0:8000 app:app
+# Or directly with PM2
+pm2 start ecosystem.config.cjs --env production
 
-# With logging
-gunicorn --workers=4 --bind=0.0.0.0:8000 --access-logfile=- --error-logfile=- app:app
+# View process status
+pm2 list
+
+# View logs
+pm2 logs
+
+# Monitor processes
+pm2 monit
+
+# Graceful restart (zero-downtime)
+pm2 reload all
+
+# Stop all processes
+npm run stop:prod
+# Or: pm2 stop ecosystem.config.cjs
 ```
 
-**Recommended production configuration:**
+**PM2 Features:**
+- Cluster mode for multi-core utilization
+- Automatic restart on crash
+- Zero-downtime reloads
+- Built-in load balancer
+- Log management
+- Process monitoring
+
+**Configure PM2 startup on system boot:**
 
 ```bash
-gunicorn \
-  --workers=4 \
-  --threads=2 \
-  --bind=0.0.0.0:8000 \
-  --timeout=120 \
-  --access-logfile=- \
-  --error-logfile=- \
-  app:app
+# Generate startup script
+pm2 startup
+
+# Save current process list
+pm2 save
+```
+
+### Running Without PM2
+
+For simple production deployments:
+
+```bash
+# Set production environment and start
+NODE_ENV=production npm start
+
+# Or with environment variables
+NODE_ENV=production PORT=3000 node src/server.js
 ```
 
 ## Running Tests
 
-This project uses **pytest** for testing.
+This project uses **Jest** for testing with **Supertest** for HTTP assertions.
 
 ### Run all tests:
 
 ```bash
-pytest
+npm test
 ```
 
-### Run tests with verbose output:
+### Run tests with watch mode:
 
 ```bash
-pytest -v
+npm run test:watch
 ```
 
 ### Run tests with coverage report:
 
 ```bash
-pytest --cov=. --cov-report=html
+npm run test:coverage
 ```
 
 ### Run specific test file:
 
 ```bash
-pytest tests/test_api.py
+npm test -- tests/health.test.js
 ```
 
 ### Run tests matching a pattern:
 
 ```bash
-pytest -k "test_user"
+npm test -- --testNamePattern="health"
 ```
 
 ## Docker Deployment
@@ -181,26 +228,33 @@ pytest -k "test_user"
 ### Build the Docker image:
 
 ```bash
-docker build -t existingproduct1-3dec .
+docker build -t express-api-server .
 ```
 
 ### Run the Docker container:
 
 ```bash
 # Basic run
-docker run -p 8000:8000 existingproduct1-3dec
+docker run -p 3000:3000 express-api-server
 
 # With environment variables
-docker run -p 8000:8000 \
-  -e FLASK_ENV=production \
+docker run -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e PORT=3000 \
   -e SECRET_KEY=your-secret-key \
-  existingproduct1-3dec
+  express-api-server
 
 # With environment file
-docker run -p 8000:8000 --env-file .env existingproduct1-3dec
+docker run -p 3000:3000 --env-file .env express-api-server
 
 # Run in detached mode
-docker run -d -p 8000:8000 --name flask-app existingproduct1-3dec
+docker run -d -p 3000:3000 --name express-api express-api-server
+
+# With volume mount for logs (optional)
+docker run -d -p 3000:3000 \
+  -v $(pwd)/logs:/app/logs \
+  --name express-api \
+  express-api-server
 ```
 
 ### Docker Compose (if applicable):
@@ -214,50 +268,83 @@ docker-compose up -d
 
 # Stop services
 docker-compose down
+
+# Rebuild and start
+docker-compose up --build
 ```
 
 ### View container logs:
 
 ```bash
-docker logs flask-app
+docker logs express-api
+
+# Follow logs
+docker logs -f express-api
+```
+
+### Health check:
+
+```bash
+# Test health endpoint
+curl http://localhost:3000/api/health
 ```
 
 ## Project Structure
 
 ```
-ExistingProduct1-3Dec/
-├── app.py                 # Main Flask application entry point
-├── config.py              # Configuration management
-├── requirements.txt       # Python dependencies
-├── Dockerfile             # Docker container definition
-├── .env.example           # Environment variable template
-├── README.md              # This file
-├── routes/
-│   ├── __init__.py        # Blueprint registration
-│   └── api.py             # API route handlers
-├── models/
-│   ├── __init__.py        # Model exports
-│   └── models.py          # Data models
-├── services/
-│   ├── __init__.py        # Service exports
-│   └── services.py        # Business logic
-├── middleware/
-│   ├── __init__.py        # Middleware exports
-│   └── auth.py            # Authentication decorators
-├── utils/
-│   ├── __init__.py        # Utility exports
-│   └── helpers.py         # Helper functions
-└── tests/
-    ├── __init__.py        # Test configuration
-    ├── conftest.py        # Pytest fixtures
-    └── test_api.py        # API tests
+express-api-server/
+├── src/
+│   ├── app.js                    # Express application factory
+│   ├── server.js                 # HTTP server entry point
+│   ├── config/
+│   │   └── index.js              # Environment configuration
+│   ├── routes/
+│   │   ├── index.js              # Route aggregator
+│   │   └── health.routes.js      # Health check endpoints
+│   ├── middleware/
+│   │   ├── errorHandler.js       # Centralized error handling
+│   │   ├── notFound.js           # 404 handler
+│   │   └── requestLogger.js      # Morgan HTTP logging
+│   └── utils/
+│       └── logger.js             # Winston logger configuration
+├── logs/                         # Log files (gitignored)
+│   ├── combined.log              # All log levels
+│   └── error.log                 # Error-level logs only
+├── tests/                        # Test files
+│   ├── setup.js                  # Test configuration
+│   └── health.test.js            # Health endpoint tests
+├── package.json                  # Node.js dependencies and scripts
+├── package-lock.json             # Dependency lock file
+├── ecosystem.config.cjs          # PM2 configuration
+├── Dockerfile                    # Docker container definition
+├── .dockerignore                 # Docker build exclusions
+├── .env.example                  # Environment variable template
+├── .env                          # Local environment (gitignored)
+├── .gitignore                    # Git exclusions
+├── .eslintrc.js                  # ESLint configuration
+└── README.md                     # This file
 ```
+
+### Directory Descriptions
+
+| Directory/File | Description |
+|----------------|-------------|
+| `src/` | Application source code |
+| `src/app.js` | Express application factory with middleware and routes |
+| `src/server.js` | HTTP server with graceful shutdown handling |
+| `src/config/` | Environment-based configuration management |
+| `src/routes/` | Express Router modules for API endpoints |
+| `src/middleware/` | Custom Express middleware functions |
+| `src/utils/` | Shared utility functions and helpers |
+| `logs/` | Application log files (auto-created) |
+| `tests/` | Jest test specifications |
+| `ecosystem.config.cjs` | PM2 process management configuration |
 
 ## API Documentation
 
 ### Base URL
 
-- Development: `http://localhost:5000`
+- Development: `http://localhost:3000`
 - Production: `http://your-domain.com`
 
 ### Available Endpoints
@@ -268,7 +355,21 @@ All API endpoints are prefixed with `/api`.
 |--------|----------|-------------|
 | GET | `/api/health` | Health check endpoint |
 
-*Additional endpoints will be documented as they are implemented.*
+### Health Check Endpoint
+
+**Request:**
+```bash
+GET /api/health
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "status": "healthy",
+  "service": "api",
+  "timestamp": "2024-12-11T12:00:00.000Z"
+}
+```
 
 ### Response Format
 
@@ -285,7 +386,10 @@ All API responses follow a consistent JSON format:
 **Error Response:**
 ```json
 {
-  "error": "Error message description"
+  "error": {
+    "status": 404,
+    "message": "Resource not found"
+  }
 }
 ```
 
@@ -295,11 +399,67 @@ All API responses follow a consistent JSON format:
 |------|-------------|
 | 200 | Success |
 | 201 | Created |
-| 400 | Bad Request |
-| 401 | Unauthorized |
-| 403 | Forbidden |
-| 404 | Not Found |
-| 500 | Internal Server Error |
+| 400 | Bad Request - Invalid input or validation error |
+| 401 | Unauthorized - Authentication required |
+| 403 | Forbidden - Access denied |
+| 404 | Not Found - Resource does not exist |
+| 405 | Method Not Allowed - Invalid HTTP method |
+| 500 | Internal Server Error - Server-side error |
+
+## Logging
+
+The application uses Winston for structured logging with Morgan for HTTP request logging.
+
+### Log Levels
+
+| Level | Description |
+|-------|-------------|
+| `error` | Error messages and exceptions |
+| `warn` | Warning messages |
+| `info` | Informational messages |
+| `http` | HTTP request logs (Morgan) |
+| `debug` | Debug-level messages |
+
+### Log Files
+
+In production, logs are written to files:
+
+| File | Contents |
+|------|----------|
+| `logs/combined.log` | All log messages (info level and above) |
+| `logs/error.log` | Error-level messages only |
+
+### Log Format
+
+**Console (Development):**
+```
+2024-12-11 12:00:00 [info]: Server started on port 3000
+```
+
+**File (Production - JSON):**
+```json
+{
+  "level": "info",
+  "message": "Server started on port 3000",
+  "timestamp": "2024-12-11T12:00:00.000Z"
+}
+```
+
+### Viewing Logs
+
+```bash
+# View combined logs
+tail -f logs/combined.log
+
+# View error logs
+tail -f logs/error.log
+
+# PM2 logs
+pm2 logs
+
+# Docker logs
+docker logs -f express-api
+```
 
 ## Contributing
 
@@ -307,32 +467,56 @@ All API responses follow a consistent JSON format:
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/your-feature-name`
-3. Make your changes
-4. Run tests: `pytest`
-5. Commit your changes: `git commit -m "Add your feature"`
-6. Push to the branch: `git push origin feature/your-feature-name`
-7. Submit a pull request
+3. Install dependencies: `npm install`
+4. Make your changes
+5. Run linting: `npm run lint`
+6. Run tests: `npm test`
+7. Commit your changes: `git commit -m "Add your feature"`
+8. Push to the branch: `git push origin feature/your-feature-name`
+9. Submit a pull request
 
 ### Code Style
 
-This project follows Python best practices:
+This project follows JavaScript best practices with ESLint:
 
-- **PEP 8** - Python style guide
-- **Type hints** - Use type annotations for function signatures
-- **Docstrings** - Document all public functions and classes
+- **ESLint** - JavaScript linting with recommended rules
+- **ES Modules** - Modern import/export syntax
+- **Async/Await** - Use async/await for asynchronous operations
+- **JSDoc Comments** - Document public functions and classes
+- **Consistent Naming** - camelCase for variables, PascalCase for classes
 
-### Running Linters (if configured):
+### Running Linters:
 
 ```bash
-# Flake8
-flake8 .
+# Run ESLint
+npm run lint
 
-# Black formatter
-black .
-
-# isort for imports
-isort .
+# Fix auto-fixable issues
+npm run lint:fix
 ```
+
+### Commit Message Format
+
+Follow conventional commit format:
+
+```
+type(scope): description
+
+Examples:
+feat(routes): add user authentication endpoint
+fix(middleware): resolve CORS header issue
+docs(readme): update installation instructions
+```
+
+## Security
+
+The application implements several security best practices:
+
+- **Helmet** - Sets various HTTP headers for security
+- **CORS** - Configurable cross-origin resource sharing
+- **Request Size Limits** - Prevents large payload attacks
+- **Environment Variables** - Sensitive data kept out of code
+- **Non-Root Docker User** - Container runs as non-privileged user
 
 ## License
 
@@ -341,3 +525,12 @@ This project is proprietary software. All rights reserved.
 ## Support
 
 For issues, questions, or contributions, please open an issue in the repository.
+
+---
+
+**Technology Stack:**
+- Runtime: Node.js 20 LTS
+- Framework: Express.js 5.x
+- Process Manager: PM2 6.x
+- Logging: Winston + Morgan
+- Container: Docker (Node.js Alpine)

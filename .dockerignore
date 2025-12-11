@@ -1,0 +1,50 @@
+# Dependencies - installed in container
+node_modules/
+
+# Logs - not needed in image
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files - secrets not included
+.env
+.env.*
+!.env.example
+
+# Version control - not needed in container
+.git/
+.gitignore
+
+# Coverage and testing artifacts
+coverage/
+.nyc_output/
+
+# Test files
+tests/
+__tests__/
+*.test.js
+*.spec.js
+
+# Documentation
+README.md
+*.md
+
+# Linting and formatting config
+.eslintrc*
+.prettierrc*
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
