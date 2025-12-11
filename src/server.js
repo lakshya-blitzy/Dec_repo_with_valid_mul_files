@@ -203,27 +203,27 @@ function onError(error) {
 
   // Handle specific listen errors with friendly messages
   switch (error.code) {
-    case 'EACCES':
-      logger.error(`${bind} requires elevated privileges`, {
-        port: PORT,
-        errorCode: error.code,
-        suggestion: 'Use a port >= 1024 or run with elevated privileges',
-      });
-      process.exit(1);
-      break;
+  case 'EACCES':
+    logger.error(`${bind} requires elevated privileges`, {
+      port: PORT,
+      errorCode: error.code,
+      suggestion: 'Use a port >= 1024 or run with elevated privileges',
+    });
+    process.exit(1);
+    break;
 
-    case 'EADDRINUSE':
-      logger.error(`${bind} is already in use`, {
-        port: PORT,
-        errorCode: error.code,
-        suggestion: 'Stop the other process using this port or use a different port',
-      });
-      process.exit(1);
-      break;
+  case 'EADDRINUSE':
+    logger.error(`${bind} is already in use`, {
+      port: PORT,
+      errorCode: error.code,
+      suggestion: 'Stop the other process using this port or use a different port',
+    });
+    process.exit(1);
+    break;
 
-    default:
-      // Re-throw unknown errors
-      throw error;
+  default:
+    // Re-throw unknown errors
+    throw error;
   }
 }
 
@@ -282,7 +282,7 @@ process.on('uncaughtException', (error) => {
  * Per key changes item 14, we handle unhandled rejections to ensure
  * async errors are properly logged and the server shuts down cleanly.
  */
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason, _promise) => {
   logger.error('Unhandled promise rejection', {
     reason: reason instanceof Error ? reason.message : String(reason),
     stack: reason instanceof Error ? reason.stack : undefined,
