@@ -308,3 +308,10 @@ server.listen(PORT, '0.0.0.0');
 // Export for testing purposes
 // Note: No exports are required per schema, but these are useful for testing
 export { app, server };
+
+// Log for testing purposes - added per Refine PR instruction
+logger.info('Server module loaded successfully', {
+  timestamp: new Date().toISOString(),
+  nodeVersion: process.version,
+  environment: config.nodeEnv,
+});
