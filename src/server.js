@@ -315,3 +315,9 @@ logger.info('Server module loaded successfully', {
   nodeVersion: process.version,
   environment: config.nodeEnv,
 });
+
+// Additional log added per Refine PR update request - testing purposes only
+logger.debug('Server initialization complete - Refine PR test update', {
+  timestamp: new Date().toISOString(),
+  modulePath: import.meta.url,
+});
