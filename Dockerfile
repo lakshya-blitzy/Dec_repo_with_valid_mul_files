@@ -82,4 +82,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # - Provides graceful shutdown capabilities
 # Using dumb-init ensures proper signal forwarding to PM2
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["pm2-runtime", "ecosystem.config.js"]
+CMD ["pm2-runtime", "ecosystem.config.cjs"]

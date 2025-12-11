@@ -76,7 +76,7 @@
  * @type {Object}
  * @property {Array<Object>} apps - Array of application configurations
  */
-export default {
+module.exports = {
   /**
    * Application Definitions Array
    *
