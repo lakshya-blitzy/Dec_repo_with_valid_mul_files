@@ -140,7 +140,7 @@ For production deployments, use PM2 as the process manager:
 npm run start:prod
 
 # Or directly with PM2
-pm2 start ecosystem.config.js --env production
+pm2 start ecosystem.config.cjs --env production
 
 # View process status
 pm2 list
@@ -156,7 +156,7 @@ pm2 reload all
 
 # Stop all processes
 npm run stop:prod
-# Or: pm2 stop ecosystem.config.js
+# Or: pm2 stop ecosystem.config.cjs
 ```
 
 **PM2 Features:**
@@ -315,7 +315,7 @@ express-api-server/
 │   └── health.test.js            # Health endpoint tests
 ├── package.json                  # Node.js dependencies and scripts
 ├── package-lock.json             # Dependency lock file
-├── ecosystem.config.js           # PM2 configuration
+├── ecosystem.config.cjs          # PM2 configuration
 ├── Dockerfile                    # Docker container definition
 ├── .dockerignore                 # Docker build exclusions
 ├── .env.example                  # Environment variable template
@@ -338,7 +338,7 @@ express-api-server/
 | `src/utils/` | Shared utility functions and helpers |
 | `logs/` | Application log files (auto-created) |
 | `tests/` | Jest test specifications |
-| `ecosystem.config.js` | PM2 process management configuration |
+| `ecosystem.config.cjs` | PM2 process management configuration |
 
 ## API Documentation
 

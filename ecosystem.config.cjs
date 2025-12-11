@@ -20,22 +20,22 @@
  *
  * Usage Examples:
  *   Development:
- *     pm2 start ecosystem.config.js
+ *     pm2 start ecosystem.config.cjs
  *
  *   Production:
- *     pm2 start ecosystem.config.js --env production
+ *     pm2 start ecosystem.config.cjs --env production
  *
  *   Test Environment:
- *     pm2 start ecosystem.config.js --env test
+ *     pm2 start ecosystem.config.cjs --env test
  *
  *   Zero-Downtime Reload (Production):
- *     pm2 reload ecosystem.config.js
+ *     pm2 reload ecosystem.config.cjs
  *
  *   Stop All Processes:
- *     pm2 stop ecosystem.config.js
+ *     pm2 stop ecosystem.config.cjs
  *
  *   Delete All Processes:
- *     pm2 delete ecosystem.config.js
+ *     pm2 delete ecosystem.config.cjs
  *
  *   View Logs:
  *     pm2 logs api-server
@@ -355,7 +355,7 @@ module.exports = {
        * Default environment variables (Development mode).
        *
        * These environment variables are applied when starting without
-       * the --env flag: `pm2 start ecosystem.config.js`
+       * the --env flag: `pm2 start ecosystem.config.cjs`
        *
        * Development settings include:
        * - Debug logging for verbose output
@@ -398,7 +398,7 @@ module.exports = {
       /**
        * Production environment variables.
        *
-       * Applied when starting with: `pm2 start ecosystem.config.js --env production`
+       * Applied when starting with: `pm2 start ecosystem.config.cjs --env production`
        *
        * Production settings include:
        * - Info-level logging for performance
@@ -442,7 +442,7 @@ module.exports = {
       /**
        * Test environment variables.
        *
-       * Applied when starting with: `pm2 start ecosystem.config.js --env test`
+       * Applied when starting with: `pm2 start ecosystem.config.cjs --env test`
        *
        * Test settings include:
        * - Error-only logging to reduce noise
