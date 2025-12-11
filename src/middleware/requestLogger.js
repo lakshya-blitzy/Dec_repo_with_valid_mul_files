@@ -29,9 +29,12 @@ import { stream } from '../utils/logger.js';
 /**
  * Environment detection flags.
  * Used to determine log format and skip behavior.
+ * 
+ * isDevelopment: true for any non-production environment (development, staging, etc.)
+ * isTest: true only for test/testing environments
  */
 const nodeEnv = process.env.NODE_ENV || 'development';
-const isDevelopment = nodeEnv === 'development';
+const isDevelopment = nodeEnv !== 'production';
 const isTest = nodeEnv === 'test' || nodeEnv === 'testing';
 
 /**
