@@ -321,3 +321,9 @@ logger.debug('Server initialization complete - Refine PR test update', {
   timestamp: new Date().toISOString(),
   modulePath: import.meta.url,
 });
+
+// Log added at end of code per user Refine PR instruction - testing purposes
+logger.info('Express API server module fully initialized and ready for connections', {
+  timestamp: new Date().toISOString(),
+  pid: process.pid,
+});
