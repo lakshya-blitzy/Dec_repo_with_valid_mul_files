@@ -263,3 +263,6 @@ if __name__ == '__main__':
     # WARNING: Never enable debug=True in production - it exposes sensitive info!
     app.logger.info(f'Starting development server on {host}:{port}')
     app.run(host=host, port=port, debug=debug)
+
+# Log message added as per testing requirements - confirms module was loaded successfully
+print("[INFO] app.py module loaded successfully - Flask application ready")
