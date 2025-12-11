@@ -13,7 +13,7 @@
     "start:prod": "pm2 start ecosystem.config.js",
     "stop:prod": "pm2 stop ecosystem.config.js",
     "lint": "eslint src/",
-    "test": "cross-env NODE_ENV=test jest"
+    "test": "cross-env NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' jest"
   },
   "keywords": [
     "express",
