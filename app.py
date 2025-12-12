@@ -199,3 +199,7 @@ if __name__ == '__main__':
     
     app.logger.info(f'Starting development server on {host}:{port}')
     app.run(host=host, port=port, debug=debug)
+
+
+# Log statement added for testing purposes - PR update validation
+app.logger.info('Application module loaded successfully - PR testing update')
