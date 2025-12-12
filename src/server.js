@@ -98,7 +98,20 @@ const SHUTDOWN_TIMEOUT = 30000;
  * - SIGTERM: Graceful shutdown with 30 second timeout
  * - SIGINT: Graceful shutdown with 30 second timeout
  *
+ * @function shutdown
  * @param {string} signal - The signal that triggered shutdown (SIGTERM, SIGINT, etc.)
+ * @returns {void}
+ * 
+ * @example
+ * // Called automatically via signal handlers:
+ * process.on('SIGTERM', () => shutdown('SIGTERM'));
+ * 
+ * // Shutdown behavior:
+ * // 1. Logs "SIGTERM received, starting graceful shutdown..."
+ * // 2. Stops accepting new connections
+ * // 3. Waits up to 30s for active requests to complete
+ * // 4. Logs "HTTP server closed successfully"
+ * // 5. Exits with code 0 (or 1 on timeout/error)
  */
 function shutdown(signal) {
   // Prevent multiple shutdown attempts from concurrent signals
@@ -157,12 +170,28 @@ function shutdown(signal) {
 // -----------------------------------------------------------------------------
 
 /**
- * Handles server listening event.
- * Called when server is successfully bound to port.
+ * Handles the server 'listening' event.
+ * 
+ * Called when the HTTP server has successfully bound to the configured port
+ * and is ready to accept incoming connections.
  *
- * This function:
- * - Logs the successful server startup with environment context
- * - Sends the PM2 'ready' signal for cluster mode wait_ready
+ * This function performs two critical actions:
+ * 1. Logs the successful server startup with full environment context
+ * 2. Sends the PM2 'ready' signal for cluster mode coordination
+ *
+ * @function onListening
+ * @returns {void}
+ * 
+ * @example
+ * // Attached as event listener:
+ * server.on('listening', onListening);
+ * 
+ * // Log output example:
+ * // {"level":"info","message":"Server started successfully",
+ * //  "port":3000,"environment":"production","pid":12345,"host":"0.0.0.0"}
+ * 
+ * @see {@link https://nodejs.org/api/net.html#event-listening} Node.js listening event
+ * @see {@link https://pm2.keymetrics.io/docs/usage/signals-clean-restart/} PM2 ready signal
  */
 function onListening() {
   logger.info('Server started successfully', {
@@ -184,14 +213,37 @@ function onListening() {
 }
 
 /**
- * Handles server error event.
- * Provides specific handling for common errors like EADDRINUSE and EACCES.
- *
- * Per key changes items 17-19:
+ * Handles the server 'error' event.
+ * 
+ * Provides specific, user-friendly handling for common server startup errors:
  * - EADDRINUSE: Port is already in use by another process
  * - EACCES: Port requires elevated privileges (typically ports < 1024)
  *
- * @param {Error} error - The error that occurred
+ * For other errors not related to listening (syscall !== 'listen'),
+ * the error is re-thrown to be handled by the uncaughtException handler.
+ *
+ * @function onError
+ * @param {Error} error - The error object from the server
+ * @param {string} error.code - The error code (e.g., 'EADDRINUSE', 'EACCES')
+ * @param {string} error.syscall - The system call that failed (e.g., 'listen')
+ * @returns {void}
+ * @throws {Error} Re-throws if error.syscall is not 'listen'
+ * 
+ * @example
+ * // Attached as event listener:
+ * server.on('error', onError);
+ * 
+ * // EADDRINUSE handling:
+ * // Logs: "Port 3000 is already in use"
+ * // Suggestion: "Stop the other process using this port or use a different port"
+ * // Exits with code 1
+ * 
+ * // EACCES handling:
+ * // Logs: "Port 80 requires elevated privileges"
+ * // Suggestion: "Use a port >= 1024 or run with elevated privileges"
+ * // Exits with code 1
+ * 
+ * @see {@link https://nodejs.org/api/errors.html#common-system-errors} Node.js System Errors
  */
 function onError(error) {
   // Only handle listen-related errors here
@@ -305,45 +357,35 @@ server.on('listening', onListening);
 // This is equivalent to Flask's app.run(host='0.0.0.0', port=port)
 server.listen(PORT, '0.0.0.0');
 
-// Export for testing purposes
-// Note: No exports are required per schema, but these are useful for testing
+/**
+ * Export server and app for testing purposes.
+ * 
+ * These exports enable integration tests to:
+ * - Access the Express app instance directly for supertest
+ * - Control the HTTP server lifecycle in tests
+ * - Verify server configuration and middleware
+ * 
+ * @example
+ * // In test files:
+ * import { app, server } from '../src/server.js';
+ * import request from 'supertest';
+ * 
+ * describe('API Tests', () => {
+ *   afterAll(() => server.close());
+ *   
+ *   it('should respond to health check', async () => {
+ *     const res = await request(app).get('/api/health');
+ *     expect(res.status).toBe(200);
+ *   });
+ * });
+ */
 export { app, server };
 
-// Log for testing purposes - added per Refine PR instruction
+/**
+ * Log server module initialization.
+ * This log entry confirms the server module has been loaded and parsed successfully.
+ */
 logger.info('Server module loaded successfully', {
-  timestamp: new Date().toISOString(),
   nodeVersion: process.version,
   environment: config.nodeEnv,
-});
-
-// Additional log added per Refine PR update request - testing purposes only
-logger.debug('Server initialization complete - Refine PR test update', {
-  timestamp: new Date().toISOString(),
-  modulePath: import.meta.url,
-});
-
-// Log added at end of code per user Refine PR instruction - testing purposes
-logger.info('Express API server module fully initialized and ready for connections', {
-  timestamp: new Date().toISOString(),
-  pid: process.pid,
-});
-
-// Additional log at end of code - Refine PR update for testing purposes (no functional changes)
-logger.info('Refine PR test log - code update validation complete', {
-  timestamp: new Date().toISOString(),
-  updatePurpose: 'testing',
-});
-
-// Log added at end of code per user Refine PR instruction - validation session
-logger.info('Refine PR validation log - final update at end of code', {
-  timestamp: new Date().toISOString(),
-  purpose: 'testing - no functional changes included',
-  validationSession: true,
-});
-
-// Final log at end of code - Refine PR update (testing purposes only, no functional changes)
-logger.info('Final server initialization log - Refine PR testing update applied', {
-  timestamp: new Date().toISOString(),
-  module: 'server.js',
-  message: 'Log added at end of code per user Refine PR instruction',
 });
