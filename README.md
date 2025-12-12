@@ -325,6 +325,253 @@ express-api-server/
 └── README.md                     # This file
 ```
 
+## Code Architecture and Inline Explanations
+
+This section provides detailed explanations of each core component's implementation and design decisions.
+
+### Entry Point: `src/server.js`
+
+The server module is the application's entry point, responsible for:
+
+```javascript
+// 1. Create Express app using factory pattern (mirrors Flask's create_app())
+const app = createApp();
+
+// 2. Wrap Express app in Node.js HTTP server for graceful shutdown support
+const server = http.createServer(app);
+
+// 3. Bind server to configured port (default: 3000)
+server.listen(PORT, '0.0.0.0');
+```
+
+**Key Functions:**
+
+| Function | Purpose | Inline Explanation |
+|----------|---------|-------------------|
+| `shutdown(signal)` | Graceful shutdown handler | Stops accepting new connections, waits for existing requests to complete (30s timeout), then exits cleanly. Essential for zero-downtime deployments with PM2/Docker. |
+| `onListening()` | Server startup callback | Logs startup info and sends PM2 'ready' signal for cluster mode coordination. |
+| `onError(error)` | Error event handler | Handles port-in-use (EADDRINUSE) and permission (EACCES) errors with friendly messages. |
+
+**Signal Handlers:**
+
+```javascript
+// SIGTERM: Triggered by Docker stop, PM2 restart, Kubernetes termination
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// SIGINT: Triggered by Ctrl+C in terminal
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Catch unhandled errors and shutdown gracefully
+process.on('uncaughtException', (error) => { /* log and shutdown */ });
+process.on('unhandledRejection', (reason) => { /* log and shutdown */ });
+```
+
+### Application Factory: `src/app.js`
+
+The Express application factory implements the **middleware composition pattern**:
+
+```javascript
+/**
+ * Middleware registration order is CRITICAL for proper request processing:
+ * 1. Security headers (Helmet) - Must be first for protection
+ * 2. CORS - Cross-origin requests handled early
+ * 3. Compression - Compress responses before sending
+ * 4. Body parsing - Parse JSON/URL-encoded before routes
+ * 5. Request logging - Log after body is parsed
+ * 6. Routes - Application endpoints
+ * 7. 404 handler - Catch unmatched routes
+ * 8. Error handler - Must be LAST to catch all errors
+ */
+export function createApp() {
+  const app = express();
+  
+  // Security middleware (order 1)
+  app.use(helmet());
+  
+  // CORS middleware (order 2)
+  app.use(cors({ origin: config.corsOrigin }));
+  
+  // ... remaining middleware in order
+  
+  // Error handlers must be LAST
+  app.use(notFoundHandler);    // Order 7: Catch 404s
+  app.use(errorHandler);       // Order 8: Handle all errors
+  
+  return app;
+}
+```
+
+### Configuration: `src/config/index.js`
+
+Environment-based configuration using dotenv pattern:
+
+```javascript
+// Load .env file FIRST before accessing process.env
+import 'dotenv/config';
+
+// Configuration object with defaults and validation
+const config = {
+  // Environment detection
+  nodeEnv: process.env.NODE_ENV || 'development',
+  isDevelopment: process.env.NODE_ENV === 'development',
+  isProduction: process.env.NODE_ENV === 'production',
+  isTest: process.env.NODE_ENV === 'test',
+  
+  // Server settings with defaults
+  port: parseInt(process.env.PORT, 10) || 3000,
+  
+  // Security settings
+  corsOrigin: process.env.CORS_ORIGIN || '*',
+  secretKey: process.env.SECRET_KEY || 'development-secret',
+  
+  // Request limits
+  requestLimit: process.env.REQUEST_LIMIT || '10mb',
+  compressionThreshold: process.env.COMPRESSION_THRESHOLD || '1kb',
+};
+
+export default config;
+```
+
+### Route Organization: `src/routes/`
+
+Routes follow **Express Router modular pattern**:
+
+```javascript
+// src/routes/index.js - Aggregates all route modules
+import { Router } from 'express';
+import healthRoutes from './health.routes.js';
+
+const router = Router();
+
+// Mount health routes at /health (becomes /api/health in app.js)
+router.use('/health', healthRoutes);
+
+export default router;
+```
+
+```javascript
+// src/routes/health.routes.js - Health check implementation
+import { Router } from 'express';
+
+const router = Router();
+
+// GET /api/health - Basic health check
+router.get('/', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'api',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+export default router;
+```
+
+### Error Handling: `src/middleware/errorHandler.js`
+
+Centralized error handling follows Express 5.x async pattern:
+
+```javascript
+/**
+ * Error handler middleware - MUST be last in middleware chain
+ * 
+ * Express identifies error handlers by their 4-parameter signature:
+ * (err, req, res, next) - The 'err' parameter is key
+ */
+export function errorHandler(err, req, res, next) {
+  // Log error with context
+  logger.error('Request error', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  });
+
+  // Determine status code
+  const status = err.status || err.statusCode || 500;
+  
+  // Return consistent JSON error format (matches Flask implementation)
+  res.status(status).json({
+    error: {
+      status,
+      message: err.message || 'Internal Server Error',
+    },
+  });
+}
+```
+
+### Logging: `src/utils/logger.js`
+
+Winston configuration with multiple transports:
+
+```javascript
+import winston from 'winston';
+
+// Create logger with environment-specific settings
+const logger = winston.createLogger({
+  // Log level based on environment
+  level: config.isProduction ? 'info' : 'debug',
+  
+  // Structured JSON format for production
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json(),
+  ),
+  
+  // Multiple transports for different outputs
+  transports: [
+    // Console transport (always)
+    new winston.transports.Console({
+      format: config.isDevelopment
+        ? winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple(),
+          )
+        : undefined,
+    }),
+    
+    // File transports (production only)
+    ...(config.isProduction ? [
+      new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+      new winston.transports.File({ filename: 'logs/combined.log' }),
+    ] : []),
+  ],
+});
+
+export default logger;
+```
+
+### PM2 Configuration: `ecosystem.config.cjs`
+
+Production process management configuration:
+
+```javascript
+module.exports = {
+  apps: [{
+    name: 'api-server',
+    script: './src/server.js',
+    
+    // Cluster mode for multi-core utilization
+    instances: 'max',        // Use all CPU cores
+    exec_mode: 'cluster',    // Enable load balancing
+    
+    // Reliability settings
+    autorestart: true,       // Auto-restart on crash
+    max_memory_restart: '500M', // Restart if memory exceeds limit
+    
+    // Environment configuration
+    env_production: {
+      NODE_ENV: 'production',
+      PORT: 3000,
+    },
+    
+    // Log configuration
+    error_file: './logs/pm2-error.log',
+    out_file: './logs/pm2-out.log',
+  }],
+};
+```
+
 ### Directory Descriptions
 
 | Directory/File | Description |
