@@ -395,3 +395,9 @@ logger.info('Server module loaded successfully', {
  * This log confirms the server module initialization is complete.
  */
 logger.info('Server initialization complete - ready to accept connections');
+
+/**
+ * Log entry added for PR testing purposes - Refine PR iteration.
+ * This confirms the pull request validation process is working correctly.
+ */
+logger.info('PR validation test - server module fully initialized');
