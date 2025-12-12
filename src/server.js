@@ -389,3 +389,9 @@ logger.info('Server module loaded successfully', {
   nodeVersion: process.version,
   environment: config.nodeEnv,
 });
+
+/**
+ * Additional log entry added for PR testing purposes.
+ * This log confirms the server module initialization is complete.
+ */
+logger.info('Server initialization complete - ready to accept connections');
